@@ -1,16 +1,9 @@
-import SummaryCards from "@/components/SummaryCards";
-import Table from "@/components/table";
-import { Portfolio } from "@/lib/portfolio";
-import { calculatePortfolioSummary } from "@/lib/summaryCalculation";
+import Sidebar from "@/components/layout/sidebar";
 
 export default function Page() {
-  const summary = calculatePortfolioSummary(Portfolio);
-
   return (
-    <main style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
-      <h1 style={{ marginBottom: "24px" }}>Portfolio dashboard</h1>
-      <SummaryCards summary={summary} />
-      <Table />
+    <main className="min-h-screen bg-[#0b2b2a] p-0">
+      <Sidebar />
     </main>
   );
 }
