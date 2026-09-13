@@ -1,19 +1,21 @@
-export const Portfolio = [
+import { PortfolioHolding } from "@/types/portfolio";
+
+export const Portfolio: PortfolioHolding[] = [
   {
     id: 1,
-    particulars: "HDFC Bank",
+    particular: "HDFC Bank",
     buyPrice: 1490.00,
     qty: 50,
-    portfolioPercentage: 4.83,
+    exchange: "NSE",
     exchangeSymbol: "HDFCBANK",
     currentPrice: 708.00,
   },
   {
     id: 2,
-    particulars: "Bajaj Finance",
+    particular: "Bajaj Finance",
     buyPrice: 6466.00,
     qty: 15,
-    portfolioPercentage: 6.29,
+    exchange: "NSE",
     exchangeSymbol: "BAJFINANCE",
     currentPrice: 1035.00,
   }
