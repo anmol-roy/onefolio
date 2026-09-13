@@ -5,11 +5,11 @@ import { calculatePortfolioSummary } from "@/lib/summaryCalculation";
 import Table from "@/components/table";
 
 export default function MainLayout() {
-  // calc once here, pass down — avoids doing it inside each child
   const summary = calculatePortfolioSummary(Portfolio);
 
   return (
-    <main className="flex-1 overflow-y-auto bg-[#e9e3da] p-6 md:p-8 lg:p-10">
+    // overflow-y-auto here so the sidebar stays sticky while this scrolls
+    <main className="flex-1 overflow-y-auto bg-[#eae5dc] px-5 py-5 md:px-8 md:py-6">
       <DashboardHeader />
       <SummaryCards summary={summary} />
       <Table />
