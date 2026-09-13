@@ -5,6 +5,7 @@ export interface PortfolioSummary {
   totalPresentValue: number;
   totalGainLoss: number;
   totalGainLossPercentage: number;
+  totalHoldings: number;
 }
 
 export function calculatePortfolioSummary(portfolio: PortfolioHolding[]): PortfolioSummary {
@@ -28,5 +29,6 @@ export function calculatePortfolioSummary(portfolio: PortfolioHolding[]): Portfo
     totalPresentValue,
     totalGainLoss,
     totalGainLossPercentage,
+    totalHoldings: portfolio.length,
   };
 }
