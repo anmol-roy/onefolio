@@ -1,10 +1,11 @@
-import Table from "@/components/table";
+import Sidebar from "@/components/layout/sidebar";
+import MainLayout from "@/components/layout/main-layout";
 
 export default function Page() {
   return (
-    <>
-      <h1>portfolio dashboard</h1>
-      <Table />
-    </>
+    <main className="flex min-h-screen bg-[#d9d9d9]">
+      <Sidebar />
+      <MainLayout />
+    </main>
   );
 }
