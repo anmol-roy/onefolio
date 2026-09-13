@@ -48,7 +48,8 @@ export type ApiStock = Stock & {
 export type ApiPortfolioResponse = {
   stocks: ApiStock[];
   fetchedAt: number;
-  errors: string[];   // any symbols that failed so frontend can show a warning
+  fetchDuration?: number;  // how long the upstream fetch took in ms
+  errors: string[];        // per-symbol failures — frontend shows these as fallback warnings
 };
 
 // what the table uses after local derivation

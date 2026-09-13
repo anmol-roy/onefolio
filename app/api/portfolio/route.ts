@@ -1,70 +1,40 @@
 import { NextResponse } from "next/server";
 import { Portfolio } from "@/lib/portfolio";
 import { fetchAllLiveData } from "@/lib/fetchLiveData";
+import { Cache } from "@/lib/cache";
 import type { ApiStock, ApiPortfolioResponse } from "@/types/portfolio";
 
-// ─── simple in-memory cache ───────────────────────────────────────────────────
-// next.js edge doesnt have a shared cache by default so we keep it module-level
-// this means the cache lives as long as the server process does
+// ─── module-level cache ───────────────────────────────────────────────────────
+// shared across all requests in the same Node process
+// fresh for 15s, stale-while-revalidate up to 60s
 
-type CacheEntry = {
-  data: ApiPortfolioResponse;
-  cachedAt: number;
-};
+export const portfolioCache = new Cache<ApiPortfolioResponse>({
+  ttlMs:   15_000,
+  staleMs: 60_000,
+});
 
-let cache: CacheEntry | null = null;
+// ─── builder — merges live quotes onto static workbook data ───────────────────
 
-// 15 seconds — matches the auto-refresh interval on the frontend
-const CACHE_TTL_MS = 15_000;
+async function buildResponse(): Promise<ApiPortfolioResponse> {
+  const t0 = Date.now();
 
-function isCacheValid(): boolean {
-  if (!cache) return false;
-  return Date.now() - cache.cachedAt < CACHE_TTL_MS;
-}
-
-// ─── route handler ────────────────────────────────────────────────────────────
-
-export async function GET() {
-  // serve from cache if still fresh
-  if (isCacheValid() && cache) {
-    return NextResponse.json(cache.data, {
-      headers: {
-        "X-Cache": "HIT",
-        "Cache-Control": "no-store", // dont let the browser cache it
-      },
-    });
-  }
-
-  const errors: string[] = [];
-
-  // build the symbol list from our holdings
   const symbolList = Portfolio.map((s) => ({
-    symbol: s.exchangeSymbol,
+    symbol:   s.exchangeSymbol,
     exchange: s.exchange,
   }));
 
-  // fetch live data — this might take a few seconds
-  let liveMap = new Map<string, ReturnType<typeof Object.assign>>();
-  try {
-    liveMap = await fetchAllLiveData(symbolList);
-  } catch (err) {
-    // if the whole fetch explodes, fall back to workbook data for everything
-    errors.push(`Live data fetch failed: ${String(err)}`);
-  }
+  // fetch yahoo + google in parallel, with timeouts + retry built in
+  const liveResult = await fetchAllLiveData(symbolList);
 
-  // calc total investment for portfolio % derivation
   const totalInvestment = Portfolio.reduce(
     (sum, s) => sum + s.buyPrice * s.qty,
     0
   );
 
-  // merge live data with static workbook data
   const stocks: ApiStock[] = Portfolio.map((s) => {
-    const live = liveMap.get(s.exchangeSymbol);
+    const live = liveResult.quotes.get(s.exchangeSymbol);
 
-    // use live cmp if available, otherwise fall back to workbook price
-    const livePrice = live?.cmp ?? s.currentPrice;
-
+    const livePrice       = live?.cmp            ?? s.currentPrice;
     const investment      = s.buyPrice * s.qty;
     const presentValue    = livePrice * s.qty;
     const gainLoss        = presentValue - investment;
@@ -72,11 +42,6 @@ export async function GET() {
     const portfolioPercent = totalInvestment > 0
       ? (investment / totalInvestment) * 100
       : 0;
-
-    // track if yahoo failed for this symbol
-    if (!live?.cmp) {
-      errors.push(`${s.exchangeSymbol}: using workbook price (yahoo unavailable)`);
-    }
 
     return {
       ...s,
@@ -88,25 +53,131 @@ export async function GET() {
       livePrice,
       livePe:             live?.pe             ?? s.pe,
       liveEarnings:       live?.latestEarnings ?? s.latestEarnings,
-      priceSource:        live?.source.cmp         ?? "workbook",
-      fundamentalsSource: live?.source.fundamentals ?? "workbook",
+      priceSource:        (live?.source.cmp         ?? "workbook") as "yahoo" | "workbook",
+      fundamentalsSource: (live?.source.fundamentals ?? "workbook") as "google" | "workbook",
       lastUpdated:        live?.fetchedAt ?? Date.now(),
     };
   });
 
-  const response: ApiPortfolioResponse = {
+  // convert structured FetchErrors to human-readable strings for the client
+  const errors = liveResult.errors.map(
+    (e) => `${e.symbol} [${e.source}]: ${e.reason}`
+  );
+
+  return {
     stocks,
-    fetchedAt: Date.now(),
+    fetchedAt:    Date.now(),
+    fetchDuration: Date.now() - t0,
     errors,
   };
+}
 
-  // update the cache
-  cache = { data: response, cachedAt: Date.now() };
+// ─── GET /api/portfolio ────────────────────────────────────────────────────────
 
-  return NextResponse.json(response, {
-    headers: {
-      "X-Cache": "MISS",
-      "Cache-Control": "no-store",
-    },
+export async function GET() {
+  // 1. fresh cache hit — serve immediately
+  const fresh = portfolioCache.getFresh();
+  if (fresh) {
+    return NextResponse.json(fresh.data, {
+      headers: {
+        "X-Cache":    "HIT",
+        "X-Cache-Age": String(portfolioCache.ageMs),
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // 2. stale-while-revalidate — serve stale data instantly,
+  //    kick off background refresh so next request gets fresh data
+  const stale = portfolioCache.getStale();
+  if (stale && !portfolioCache.isRevalidating) {
+    portfolioCache.setRevalidating(true);
+
+    // fire and forget — dont await
+    buildResponse()
+      .then((data) => {
+        portfolioCache.set(data, data.fetchDuration ?? 0);
+      })
+      .catch((err) => {
+        console.error("[portfolio] background revalidation failed:", err);
+      })
+      .finally(() => {
+        portfolioCache.setRevalidating(false);
+      });
+
+    return NextResponse.json(stale.data, {
+      headers: {
+        "X-Cache":     "STALE",
+        "X-Cache-Age": String(portfolioCache.ageMs),
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  // 3. cache miss or expired — fetch synchronously
+  try {
+    const data = await buildResponse();
+    portfolioCache.set(data, data.fetchDuration ?? 0);
+
+    return NextResponse.json(data, {
+      headers: {
+        "X-Cache":    "MISS",
+        "X-Cache-Age": "0",
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    // complete failure — return structured error with fallback workbook data
+    console.error("[portfolio] GET failed:", err);
+
+    const fallback = buildFallbackResponse();
+    return NextResponse.json(fallback, {
+      status: 503,
+      headers: {
+        "X-Cache":       "ERROR",
+        "Cache-Control": "no-store",
+        "Retry-After":   "15",
+      },
+    });
+  }
+}
+
+// ─── fallback — pure workbook data when all live fetches fail ─────────────────
+
+function buildFallbackResponse(): ApiPortfolioResponse {
+  const totalInvestment = Portfolio.reduce(
+    (sum, s) => sum + s.buyPrice * s.qty, 0
+  );
+
+  const stocks: ApiStock[] = Portfolio.map((s) => {
+    const investment      = s.buyPrice * s.qty;
+    const presentValue    = s.currentPrice * s.qty;
+    const gainLoss        = presentValue - investment;
+    const gainLossPercent = investment > 0 ? (gainLoss / investment) * 100 : 0;
+    const portfolioPercent = totalInvestment > 0
+      ? (investment / totalInvestment) * 100
+      : 0;
+
+    return {
+      ...s,
+      investment,
+      presentValue,
+      gainLoss,
+      gainLossPercent,
+      portfolioPercent,
+      livePrice:          s.currentPrice,
+      livePe:             s.pe,
+      liveEarnings:       s.latestEarnings,
+      priceSource:        "workbook" as const,
+      fundamentalsSource: "workbook" as const,
+      lastUpdated:        Date.now(),
+    };
   });
+
+  return {
+    stocks,
+    fetchedAt:     Date.now(),
+    fetchDuration: 0,
+    errors:        ["All live data sources unavailable — showing workbook values"],
+  };
 }
