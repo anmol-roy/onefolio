@@ -5,96 +5,58 @@ interface SummaryCardsProps {
   summary: PortfolioSummary;
 }
 
-interface SummaryCardProps {
+interface CardProps {
   title: string;
   value: string;
+  sub?: string;
   accent?: "neutral" | "positive" | "negative";
 }
 
-function SummaryCard({ title, value, accent = "neutral" }: SummaryCardProps) {
-  const colorMap = {
-    neutral: "#1f2937",
-    positive: "#16a34a",
-    negative: "#dc2626",
-  };
+function Card({ title, value, sub, accent = "neutral" }: CardProps) {
+  const valueColor =
+    accent === "positive" ? "text-[#1a7a4a]" :
+    accent === "negative" ? "text-[#c0392b]" :
+    "text-[#1a2e2d]";
 
   return (
-    <div
-      style={{
-        background: "#f3f4f6",
-        border: "1px solid #e5e7eb",
-        borderRadius: "12px",
-        padding: "18px 20px",
-        minHeight: "120px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-      }}
-    >
-      <div
-        style={{
-          color: "#6b7280",
-          fontSize: "12px",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          fontWeight: 700,
-        }}
-      >
+    <div className="flex flex-col gap-1 rounded-xl border border-[#d8d2c8] bg-[#f5f1eb] px-4 py-3.5 shadow-sm">
+      <div className="text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-[#8a9a98]">
         {title}
       </div>
-
-      <div
-        style={{
-          color: colorMap[accent],
-          fontSize: "28px",
-          fontWeight: 700,
-          lineHeight: 1.2,
-        }}
-      >
+      <div className={`text-xl font-bold tracking-tight ${valueColor}`}>
         {value}
       </div>
+      {sub && (
+        <div className={`text-[0.7rem] font-medium ${valueColor} opacity-70`}>{sub}</div>
+      )}
     </div>
   );
 }
 
 export default function SummaryCards({ summary }: SummaryCardsProps) {
-  const cards: SummaryCardProps[] = [
-    {
-      title: "Total Invested",
-      value: formatCompactIndianCurrency(summary.totalInvestment),
-    },
-    {
-      title: "Present Value",
-      value: formatCompactIndianCurrency(summary.totalPresentValue),
-    },
-    {
-      title: "Total Gain/Loss",
-      value: formatCompactIndianCurrency(summary.totalGainLoss),
-      accent: summary.totalGainLoss >= 0 ? "positive" : "negative",
-    },
-    {
-      title: "Holdings",
-      value: String(summary.totalHoldings),
-    },
-  ];
+  const pos = summary.totalGainLoss >= 0;
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: "16px",
-        marginBottom: "24px",
-      }}
-    >
-      {cards.map((card) => (
-        <SummaryCard
-          key={card.title}
-          title={card.title}
-          value={card.value}
-          accent={card.accent}
-        />
-      ))}
+    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <Card
+        title="Total Invested"
+        value={formatCompactIndianCurrency(summary.totalInvestment)}
+      />
+      <Card
+        title="Present Value"
+        value={formatCompactIndianCurrency(summary.totalPresentValue)}
+      />
+      <Card
+        title="Gain / Loss"
+        value={`${pos ? "+" : ""}${formatCompactIndianCurrency(summary.totalGainLoss)}`}
+        sub={`${pos ? "+" : ""}${summary.totalGainLossPercentage.toFixed(2)}%`}
+        accent={pos ? "positive" : "negative"}
+      />
+      <Card
+        title="Holdings"
+        value={String(summary.totalHoldings)}
+        sub="positions"
+      />
     </div>
   );
 }

@@ -3,32 +3,37 @@ import SidebarNav from "./sidebar-nav";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-screen w-full max-w-55 flex-col rounded-r-[12px] bg-[#0e3a3a] px-4 pb-3 pt-5 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04)] sm:max-w-75 xl:max-w-63">
-      <div className="flex items-center gap-3 px-2 pb-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#e0b85d] text-base font-bold text-[#0d2b2a] shadow-inner shadow-white/10">
+    // sticky so it stays in place while main content scrolls
+    <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col bg-[#0c3535] px-3 pb-3 pt-4 text-white">
+
+      {/* logo */}
+      <div className="flex items-center gap-2.5 px-1.5 pb-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#e0b85d] text-[0.7rem] font-bold text-[#0d2b2a]">
           OC
         </div>
-
         <div className="leading-none">
-          <h1 className="text-[1.4rem] font-semibold tracking-tight text-[#f5efe8]">Openfolio</h1>
-          <p className="mt-2 text-[0.48rem] font-medium uppercase tracking-[0.22em] text-white/60">
+          <div className="text-[0.95rem] font-semibold tracking-tight text-[#f5efe8]">Openfolio</div>
+          <div className="mt-1 text-[0.45rem] font-medium uppercase tracking-[0.22em] text-white/50">
             Personal Cockpit
-          </p>
+          </div>
         </div>
       </div>
 
-      <nav className="mt-2 space-y-1.5 px-1">
+      {/* nav */}
+      <nav className="space-y-0.5 px-0.5">
         <SidebarNav label="Overview" active icon="overview" />
         <SidebarNav label="Holdings" icon="holdings" />
       </nav>
 
+      {/* daily review card pushed to bottom */}
       <DailyReviewCard />
 
-      <div className="mt-4 flex items-center gap-2 px-2 pb-1 text-[0.62rem] font-medium uppercase tracking-[0.18em] text-white/50">
+      {/* locale footer */}
+      <div className="mt-3 flex items-center gap-1.5 px-1.5 text-[0.58rem] font-medium uppercase tracking-[0.16em] text-white/40">
         <span>India</span>
-        <span>•</span>
+        <span>·</span>
         <span>INR</span>
-        <span>•</span>
+        <span>·</span>
         <span>IST</span>
       </div>
     </aside>

@@ -10,17 +10,12 @@ export interface PortfolioSummary {
 
 export function calculatePortfolioSummary(portfolio: PortfolioHolding[]): PortfolioSummary {
   const totalInvestment = portfolio.reduce(
-    (sum, stock) => sum + stock.buyPrice * stock.qty,
-    0,
+    (sum, s) => sum + s.buyPrice * s.qty, 0
   );
-
   const totalPresentValue = portfolio.reduce(
-    (sum, stock) => sum + stock.currentPrice * stock.qty,
-    0,
+    (sum, s) => sum + s.currentPrice * s.qty, 0
   );
-
   const totalGainLoss = totalPresentValue - totalInvestment;
-
   const totalGainLossPercentage =
     totalInvestment === 0 ? 0 : (totalGainLoss / totalInvestment) * 100;
 
