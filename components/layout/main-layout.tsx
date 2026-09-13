@@ -8,7 +8,6 @@ export default function MainLayout() {
   const summary = calculatePortfolioSummary(Portfolio);
 
   return (
-    // overflow-y-auto here so the sidebar stays sticky while this scrolls
     <main className="flex-1 overflow-y-auto bg-[#eae5dc] px-5 py-5 md:px-8 md:py-6">
       <DashboardHeader />
       <SummaryCards summary={summary} />
